@@ -114,6 +114,23 @@
 
   .navbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 
+  /* ---------- 羅盤箭頭 ---------- */
+  .compass { display: none; flex-direction: column; align-items: center; gap: 8px; margin-top: 14px; }
+  .compass.on { display: flex; }
+  .dial {
+    width: 140px; height: 140px; border-radius: 50%;
+    border: 2px solid var(--hairline);
+    background: var(--page);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .needle {
+    font-size: 64px; line-height: 1;
+    color: var(--accent);
+    transition: transform 0.15s linear;
+    will-change: transform;
+  }
+  .compass-hint { font-size: 12px; color: var(--ink-muted); text-align: center; line-height: 1.7; }
+
   .indoor-tip {
     font-size: 13px; color: var(--ink-2);
     background: var(--page);
@@ -268,6 +285,11 @@
         <div class="navbtns">
           <button class="btn" id="btnAppleMap">🧭 Apple 地圖導航</button>
           <button class="btn ghost" id="btnGoogleMap">Google 地圖</button>
+        </div>
+        <button class="btn ghost" id="btnCompass" style="margin-top:10px">🧭 顯示方向箭頭（離線可用）</button>
+        <div class="compass" id="compassBox">
+          <div class="dial"><div class="needle" id="needle">⬆</div></div>
+          <div class="compass-hint" id="compassHint">朝箭頭方向走，距離會越來越近<br>手機拿平、螢幕朝上最準</div>
         </div>
       </div>
 
@@ -541,11 +563,13 @@ function startWatch() {
   if (!cur || cur.lat == null || !('geolocation' in navigator)) return;
   watchId = navigator.geolocation.watchPosition(
     (pos) => {
+      lastPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       const d = haversine(pos.coords.latitude, pos.coords.longitude, cur.lat, cur.lng);
       /* 誤差 = 目前定位精度 + 記錄當下精度 */
       const err = Math.round(pos.coords.accuracy + (cur.accuracy || 0));
       document.getElementById('distance').textContent = '約 ' + fmtDistance(d);
       document.getElementById('distanceAcc').textContent = '直線距離（誤差約 ±' + err + ' 公尺）';
+      updateNeedle();
     },
     (err) => {
       document.getElementById('distance').textContent = '無法取得目前位置';
@@ -561,6 +585,84 @@ function stopWatch() {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+}
+
+/* ================= 羅盤箭頭 ================= */
+let lastPos = null;      /* 最近一次的目前位置（watchPosition 更新） */
+let heading = null;      /* 手機面朝的方位角（0 = 正北，順時針） */
+let compassOn = false;
+
+/* 目前位置 → 車子位置的方位角（0-360，正北起順時針） */
+function bearingTo(lat1, lng1, lat2, lng2) {
+  const rad = Math.PI / 180;
+  const dLng = (lng2 - lng1) * rad;
+  const y = Math.sin(dLng) * Math.cos(lat2 * rad);
+  const x = Math.cos(lat1 * rad) * Math.sin(lat2 * rad) -
+            Math.sin(lat1 * rad) * Math.cos(lat2 * rad) * Math.cos(dLng);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function updateNeedle() {
+  if (!compassOn) return;
+  const cur = state.current;
+  const hint = document.getElementById('compassHint');
+  if (!cur || cur.lat == null) return;
+  if (heading == null) {
+    hint.textContent = '等待方向資訊…（需要手機的羅盤感測器）';
+    return;
+  }
+  if (!lastPos) {
+    hint.textContent = '等待 GPS 定位中…';
+    return;
+  }
+  const b = bearingTo(lastPos.lat, lastPos.lng, cur.lat, cur.lng);
+  const rot = (b - heading + 360) % 360;
+  document.getElementById('needle').style.transform = 'rotate(' + rot + 'deg)';
+  hint.innerHTML = '朝箭頭方向走，距離會越來越近<br>手機拿平、螢幕朝上最準';
+}
+
+function onOrient(e) {
+  let h = null;
+  if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) {
+    h = e.webkitCompassHeading;          /* iOS：相對真北 */
+  } else if (e.absolute && e.alpha != null) {
+    h = (360 - e.alpha) % 360;           /* 其他平台的絕對方位 */
+  }
+  if (h != null) {
+    heading = h;
+    updateNeedle();
+  }
+}
+
+document.getElementById('btnCompass').addEventListener('click', async () => {
+  /* iOS 13+ 需要在使用者點擊時請求「動作與方向」權限（本機系統對話框，離線可用） */
+  try {
+    if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const r = await DeviceOrientationEvent.requestPermission();
+      if (r !== 'granted') {
+        alert('未取得方向權限，無法顯示箭頭。\n可到 iPhone 設定開啟後再試，或直接用距離數字找車。');
+        return;
+      }
+    }
+  } catch (err) {
+    alert('無法取得方向感測器。仍可用距離數字找車（朝距離變小的方向走）。');
+    return;
+  }
+  window.addEventListener('deviceorientation', onOrient);
+  compassOn = true;
+  document.getElementById('btnCompass').style.display = 'none';
+  document.getElementById('compassBox').classList.add('on');
+  updateNeedle();
+});
+
+function stopCompass() {
+  if (compassOn) {
+    window.removeEventListener('deviceorientation', onOrient);
+    compassOn = false;
+    heading = null;
+  }
+  document.getElementById('compassBox').classList.remove('on');
+  document.getElementById('btnCompass').style.display = '';
 }
 
 /* ================= 地圖導航 ================= */
@@ -673,7 +775,7 @@ function render() {
 
   clearInterval(timerId);
   stopWatch();
-  if (!cur) return;
+  if (!cur) { stopCompass(); lastPos = null; return; }
 
   /* 計時，每 30 秒更新 */
   renderTimer();
@@ -687,6 +789,9 @@ function render() {
     document.getElementById('distance').textContent = '計算中…';
     document.getElementById('distanceAcc').textContent = '';
     startWatch();
+  } else {
+    stopCompass();
+    lastPos = null;
   }
 
   /* 細節 */
