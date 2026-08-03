@@ -217,6 +217,9 @@
   }
 
   .footnote { text-align: center; font-size: 12px; color: var(--ink-muted); padding: 6px 20px 20px; line-height: 1.7; }
+
+  ol.steps { padding-left: 20px; font-size: 14px; color: var(--ink-2); line-height: 2.0; }
+  .note { font-size: 12px; color: var(--ink-muted); margin-top: 10px; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -288,6 +291,18 @@
 
       <button class="btn danger" id="btnClear">🚗 我開走了（清除這筆紀錄）</button>
     </section>
+
+    <!-- 儲存成 App 教學：已從主畫面開啟時自動隱藏 -->
+    <div class="card" id="installGuide" style="margin-top:14px">
+      <h2>📲 把這個網頁儲存成 App</h2>
+      <ol class="steps">
+        <li>用 <b>Safari</b> 開啟本頁（其他瀏覽器沒有此功能）</li>
+        <li>點下方中間的「<b>分享</b>」按鈕（方框加向上箭頭 ⬆️）</li>
+        <li>選單往下滑，點「<b>加入主畫面</b>」</li>
+        <li>右上角按「<b>加入</b>」就完成了</li>
+      </ol>
+      <p class="note">之後從主畫面的圖示開啟：全螢幕、可離線使用、跟一般 App 一樣。注意：Safari 與主畫面 App 的紀錄互不相通，安裝後請固定用主畫面圖示。</p>
+    </div>
   </main>
 
   <div class="footnote" id="footnote">資料只存在這台裝置上，不會上傳網路</div>
@@ -737,8 +752,11 @@ try {
   }
 } catch (e) {}
 
-/* Safari 分頁與主畫面 App 的資料互不相通，提醒固定用同一邊 */
-if (!isStandalone()) {
+/* Safari 分頁與主畫面 App 的資料互不相通，提醒固定用同一邊；
+   已是主畫面 App 就把安裝教學收起來 */
+if (isStandalone()) {
+  document.getElementById('installGuide').style.display = 'none';
+} else {
   document.getElementById('footnote').textContent =
     '資料只存在這台裝置上，不會上傳網路。Safari 與主畫面 App 的紀錄互不相通，安裝後請固定從主畫面圖示開啟。';
 }
