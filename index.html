@@ -857,9 +857,15 @@ try {
   }
 } catch (e) {}
 
+/* 被工具箱（首頁啟動器）以 iframe 嵌入時，視同 App 模式 */
+const inLauncher = (() => {
+  try { return window.top !== window && /^\/(index\.html)?$/.test(window.top.location.pathname); }
+  catch (e) { return false; }
+})();
+
 /* Safari 分頁與主畫面 App 的資料互不相通，提醒固定用同一邊；
-   已是主畫面 App 就把安裝教學收起來 */
-if (isStandalone()) {
+   已是主畫面 App（或在工具箱內）就把安裝教學收起來 */
+if (isStandalone() || inLauncher) {
   document.getElementById('installGuide').style.display = 'none';
 } else {
   document.getElementById('footnote').textContent =
