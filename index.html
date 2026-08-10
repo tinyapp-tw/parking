@@ -234,6 +234,7 @@
   }
 
   .footnote { text-align: center; font-size: 12px; color: var(--ink-muted); padding: 6px 20px 20px; line-height: 1.7; }
+  body.in-launcher main { padding-bottom: 24px; }
 
   ol.steps { padding-left: 20px; font-size: 14px; color: var(--ink-2); line-height: 2.0; }
   .note { font-size: 12px; color: var(--ink-muted); margin-top: 10px; line-height: 1.7; }
@@ -865,6 +866,7 @@ const inLauncher = (() => {
 
 /* Safari 分頁與主畫面 App 的資料互不相通，提醒固定用同一邊；
    已是主畫面 App（或在工具箱內）就把安裝教學收起來 */
+if (inLauncher) document.body.classList.add('in-launcher');
 if (isStandalone() || inLauncher) {
   document.getElementById('installGuide').style.display = 'none';
 } else {

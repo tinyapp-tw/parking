@@ -1,5 +1,5 @@
 /* 停車定位 Service Worker — 離線快取 */
-const CACHE = 'parking-v6';
+const CACHE = 'parking-v7';
 const PRECACHE = [
   './',
   './index.html',
